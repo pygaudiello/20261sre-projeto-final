@@ -4,20 +4,22 @@
 
 ```mermaid
 graph LR
-    S3[(AWS S3 - Raw CSV)] --> ETL[ETL Engine - Python]
-    ETL --> PG[(Postgres - Analytical)]
-    PG --> GRAF[Grafana Dashboards]
+    S3[(AWS S3 - Raw CSV)] -- trigger --> LMD[AWS Lambda - ETL Python]
+    LMD --> PG[(Postgres - Analytical)]
     
-    subgraph Observabilidade
-        PROM[Prometheus] -- monitora --> ETL
-        PROM -- monitora --> PG
-        ELK[ELK Stack] -- logs --> ETL
+    subgraph Observabilidade Nativa
+        CW[CloudWatch Logs & Metrics] -- monitora --> LMD
+        CW -- monitora --> PG
+        CW -- alerta --> SNS[SNS Alerting]
+        CW -- visualiza --> CWD[CloudWatch Dashboards]
     end
     
     subgraph Orquestração
-        AIR[Apache Airflow] -- dispara --> ETL
+        SF[Step Functions / S3 Event] -- dispara --> LMD
     end
 ```
 
 ## 2. Narrativa do Design
-O sistema foi desenhado para ser resiliente e escalável. A ingestão inicia-se com o Airflow disparando o container de ETL. Este container baixa os dados do S3, valida o hash do arquivo contra uma tabela de controle (`etl_control`) para garantir idempotência e processa os dados usando Pandas. O carregamento final utiliza a estratégia de `upsert` no Postgres para evitar duplicatas em nível de registro. Todo o processo é monitorado pelo Prometheus, enviando alertas em caso de falha ou degradação de performance (SLOs).
+O sistema foi otimizado para **baixo esforço de desenvolvimento** e alta eficiência de custo usando uma arquitetura **Serverless**. A ingestão é disparada automaticamente quando um novo arquivo chega ao S3 (**S3 Event Trigger**) ou através de um fluxo do **Step Functions**.
+
+O processamento é realizado por **AWS Lambdas** escritas em Python. Esta abordagem elimina a necessidade de configurar servidores, gerenciar Dockerfiles complexos ou se preocupar com escalabilidade de infraestrutura, permitindo focar exclusivamente na lógica de transformação de dados e nas regras de negócio. A estratégia de carga permanece com `upsert` no Postgres, garantindo integridade e idempotência de forma simples e direta.

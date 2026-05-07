@@ -44,7 +44,7 @@ Foco na experiência do analista de dados e transparência do pipeline.
 
 | ID | Atributo | SLI (Indicador) | SLO (Objetivo) | Fonte | Prioridade |
 |:---|:---|:---|:---|:---|:---|
-| RNF-14 | Operability | Dashboards de saúde do pipeline ativos. | 100% visível | Grafana | Should |
+| RNF-14 | Operability | Dashboards de saúde do pipeline ativos. | 100% visível | CloudWatch | Should |
 | RNF-15 | User Error Protection | Alerta de schema drift na entrada (Raw). | < 1 min alerta | Schema Val. | Must |
 
 ## 6. Compatibilidade, Portabilidade e Adequação Funcional

@@ -18,4 +18,4 @@ Para garantir a integridade do negócio, o pipeline de ETL (Extract, Transform, 
     *   **Falha Explícita**: O sistema não deve sofrer "silenciosamente". Qualquer erro crítico deve interromper o fluxo ou alertar imediatamente os responsáveis.
 
 ## Objetivo Final
-Carregamento de dados em um banco de dados analítico (Postgres) para alimentação de dashboards diários (Grafana), garantindo que a tomada de decisão seja baseada em dados confiáveis e atuais.
+Carregamento de dados em um banco de dados analítico OLAP (**ClickHouse**) para alimentação de dashboards diários (Grafana), garantindo que a tomada de decisão seja baseada em dados confiáveis e atuais. O sistema deve ser capaz de consultar dados diretamente do storage (**S3/MinIO**) via S3 Table Engine.

@@ -19,37 +19,44 @@ Este documento descreve a arquitetura do pipeline de dados Olist utilizando o fr
 
 ## 3. Computational Viewpoint (Visão Computacional)
 **Objetivo**: Definir os componentes lógicos e suas interfaces.
-- **Ingestor Incremental**: Módulo de captura via offset/timestamp. (RF-01, RF-02)
-- **Motor de Qualidade**: Validação de schemas e segregação para Dead-Letter. (RF-07, RF-08, RNF-15)
-- **Transformador Idempotente**: Engine de normalização e unicidade. (RF-04, RF-05, RF-09, RF-10, RNF-04)
-- **Interface Analítica**: Camada semântica e queries otimizadas. (RF-19, RF-20, RNF-02)
-- **Atendimento**: RF-01, RF-02, RF-04, RF-05, RF-07, RF-08, RF-09, RF-10, RF-19, RF-20. RNF-02, RNF-04, RNF-15.
+- **Ingestor Python (Extract/Load)**: Scripts Python utilizando **Pandas/Polars** ou **Boto3** para extrair dados da fonte e carregar no S3/MinIO. (RF-01, RF-02)
+- **Motor de Qualidade & PII (Python)**: Processamento de dados sensíveis e validações complexas que exigem lógica procedural antes da carga no ClickHouse. (RF-07, RF-08)
+- **Motor de Transformação (dbt)**: Orquestração da lógica de negócio SQL dentro do ClickHouse.
+- **Engine OLAP (ClickHouse)**: Execução de queries de alto desempenho.
 
 ## 4. Engineering Viewpoint (Visão de Engenharia)
 **Objetivo**: Infraestrutura de suporte e mecanismos de resiliência.
-- **Orquestrador (Airflow on EC2)**: Gestão de DAGs, Retries, Agendamento e Reprocessamento manual/granular. (RF-13, RF-14, RF-15, RF-16, RNF-01, RNF-05, RNF-11)
-- **Nó de Storage (S3)**: Persistência distribuída e portabilidade de formatos (Parquet). (RF-03, RNF-16)
-- **Data Warehouse (RDS Postgres)**: Banco analítico com suporte a concorrência e disponibilidade. (RF-11, RNF-06, RNF-17)
-- **Pilha de Observabilidade**: Alertas de MTTD, Status do pipeline e Dashboards nativos no CloudWatch. (RF-17, RF-18, RNF-13, RNF-14)
-- **Atendimento**: RF-03, RF-11, RF-13, RF-14, RF-15, RF-16, RF-17, RF-18. RNF-01, RNF-05, RNF-06, RNF-11, RNF-13, RNF-14, RNF-16, RNF-17.
+- **Runtimes de Execução**: **AWS Lambda** (Python) para tarefas leves/event-driven e **Containers Docker** para execuções dbt/ClickHouse.
+- **Nó de Storage (S3 / MinIO)**: Buffer de dados entre o Ingestor Python e o ClickHouse.
+- **Pilha de Observabilidade**: Logs estruturados em Python enviados ao CloudWatch/Loki.
 
 ## 5. Technology Viewpoint (Visão de Tecnologia)
-**Objetivo**: Escolha tecnológica limitada ao AWS Academy Learner Lab.
-- **Processamento**: AWS Lambda (Python 3.x) para ingestão e transformações leves. (RNF-01, RNF-11, RNF-12)
-- **Orquestração**: Apache Airflow em Docker ou AWS Step Functions (Conforme custo/benefício do Lab). (RNF-02, RNF-03)
-- **Dados**: RDS PostgreSQL (db.t3.micro) e S3 Buckets. (RNF-16)
-- **Segurança**: AWS IAM Roles e SSM Parameter Store (Secrets). (RNF-08, RNF-10)
-- **Observabilidade**: CloudWatch Dashboards, Logs e SNS (Sem instâncias dedicadas). (RNF-13, RNF-14)
-- **Atendimento**: RNF-01, RNF-02, RNF-03, RNF-08, RNF-10, RNF-11, RNF-12, RNF-13, RNF-14, RNF-16.
+**Objetivo**: Mix de Python e Modern Data Stack.
+- **Linguagem Principal**: **Python 3.x** para Ingestão, Auditoria e SRE Scripts.
+- **Transformação**: **dbt-core** para lógica SQL.
+- **Engine OLAP**: **ClickHouse**.
+- **Bibliotecas Python**: `boto3`, `clickhouse-connect`, `polars` (performance), `pytest` (testes).
 
 ---
 
 ## ADRs (Architecture Decision Records)
 
-### ADR-01: RDS Postgres como Camada Analítica (Warehouse)
-- **Contexto**: Restrição de uso de Redshift no Lab e necessidade de performance em queries analíticas.
-- **Decisão**: Utilizar o RDS Postgres com índices otimizados e particionamento.
-- **Atendimento**: RNF-02, RNF-06, RNF-16.
+### ADR-07: Python para Ingestão e Lógica Procedural
+- **Contexto**: Algumas tarefas como limpeza de PII, chamadas de API complexas e validações de integridade customizadas são difíceis de expressar apenas em SQL.
+- **Decisão**: Utilizar Python para todas as etapas de "Extract" e "Load", além de transformações procedurais na camada "Trusted". O dbt permanece como orquestrador das camadas puramente analíticas (Curated).
+- **Atendimento**: RF-01, RF-02, RF-07, RF-08, RNF-11.
+
+---
+
+## ADRs (Architecture Decision Records)
+
+### ADR-01: ClickHouse como Camada Analítica (OLAP)
+(Mantido)
+
+### ADR-06: dbt para Gestão de Transformações (T do ELT)
+- **Contexto**: Necessidade de gerenciar a complexidade das transformações SQL, garantir testes de qualidade e linhagem dos dados.
+- **Decisão**: Adotar o **dbt**. O dbt permite tratar SQL como código (Software Engineering best practices), facilitando o versionamento e testes automatizados (RNF-12) antes da carga final no BI.
+- **Atendimento**: RF-04, RF-05, RF-06, RNF-11, RNF-12.
 
 ### ADR-02: Orquestração via Airflow em EC2
 - **Contexto**: Necessidade de gestão complexa de falhas, reprocessamento granular e visibilidade.
@@ -100,46 +107,7 @@ Este documento descreve a arquitetura do pipeline de dados Olist utilizando o fr
   2. Atendimento aos Requisitos SRE (do 00 e 02)
    * Idempotência e Resiliência: A arquitetura delega ao Airflow (Orquestrador) a gestão de retries e reprocessamento granular (RF-15/16),
      garantindo que falhas não corrompam os dados.
-   * Observabilidade: A Visão de Engenharia inclui uma pilha de observabilidade com Grafana e CloudWatch para monitorar o status do
-     pipeline em tempo real (RF-17).
-   * Escalabilidade: A escolha de Python modular e S3 permite que o sistema suporte o volume de 100k pedidos/dia e picos de carga
-     (RNF-01/03).
-
-
-      Resumo Executivo da Arquitetura: Pipeline de Dados Olist (SRE-Focused)
-
-  "A arquitetura proposta para o desafio da Olist foi desenhada sob o framework RM-ODP (ISO/IEC 10746), focando em processar 100 mil
-  pedidos diários com garantias rigorosas de integridade e baixo custo operacional no ambiente AWS Academy.
-
-  Nossas principais escolhas estratégicas foram guiadas por três pilares: Simplicidade de Desenvolvimento, Eficiência de Custo e
-  Resiliência SRE.
-
-  1. Estratégia de Processamento: Serverless-First (ADR-05)
-  Optamos por substituir instâncias EC2 e containers Docker por AWS Lambda (Python). 
-   * Por que? Reduzimos o tempo de desenvolvimento ao eliminar o gerenciamento de servidores e patchings. O Lambda oferece escalabilidade
-     automática e integração nativa com o S3, sendo disparado via eventos assim que um arquivo é carregado. Isso garante que o custo seja
-     proporcional ao volume processado, aproveitando o Free Tier da AWS.
-
-  2. Armazenamento e Camadas de Dados (ADR-01 & ADR-03)
-  O fluxo segue o padrão de Data Lakehouse simplificado:
-   * Bronze (Raw): Armazenamento imutável no S3 em formato original, garantindo a capacidade de reprocessamento total em caso de desastre.
-   * Gold (Analytics): Os dados processados são carregados via upsert em um RDS PostgreSQL. Escolhemos o Postgres pela maturidade em
-     operações analíticas e suporte nativo a índices, essencial para alimentar os dashboards diários com baixa latência.
-
-  3. Observabilidade e Monitoramento Nativo (ADR-04)
-  Em vez de ferramentas externas como Grafana ou Prometheus, centralizamos tudo no AWS CloudWatch.
-   * Por que? Reduzimos o consumo de créditos do Lab ao não manter instâncias dedicadas. Utilizamos o CloudWatch para logs estruturados,
-     métricas de saúde do pipeline e dashboards de SLOs (como tempo de processamento e taxa de erro). Alertas críticos são disparados via
-     SNS (Simple Notification Service) para garantir um baixo MTTD (Tempo Médio de Detecção).
-
-  4. Garantias de Confiabilidade (SRE)
-  Para atender aos requisitos de 'Confialibilidade Zero Perda':
-   * Idempotência: A lógica de carga no banco utiliza order_id como chave de unicidade, permitindo que o mesmo lote seja reprocessado
-     múltiplas vezes sem duplicar dados.
-   * Dead-Letter Queues (DLQ): Registros que falham em validações de schema ou regras de negócio são isolados para análise posterior,
-     impedindo que erros silenciosos corrompam o Analytics.
-   * Orquestração: O fluxo é resiliente a falhas temporárias com políticas de Retries automáticos configuradas no Lambda ou Step
-     Functions.
+   * Observabilidade: A Visão decrie as camadas da nossa arquitetura, emum docler cpm
 
   Conclusão: 
   O resultado é uma arquitetura Lean, com custo operacional próximo de zero em períodos de ociosidade, mas capaz de processar picos de

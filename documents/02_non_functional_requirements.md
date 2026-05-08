@@ -18,8 +18,8 @@ O pilar central do projeto: garantir que nenhum dado seja perdido ou duplicado.
 |:---|:---|:---|:---|:---|:---|
 | RNF-04 | Maturity (Idempotência) | Registros duplicados no DB por `order_id`. | 0 duplicatas | SQL Audit | Must |
 | RNF-05 | Recoverability (Auto-recovery) | Sucesso de retries automáticos em falhas. | > 95% sucesso | Airflow Meta | Must |
-| RNF-06 | Availability | Disponibilidade do banco analítico para o BI. | 99.5% mensal | Health Check | Must |
-| RNF-07 | Data Integrity | Divergência S3 Raw vs Postgres Curated. | 0 registros | Checksum/Audit | Must |
+| RNF-06 | Availability | Disponibilidade do servidor ClickHouse. | 99.9% mensal | Health Check | Must |
+| RNF-07 | Data Integrity | Divergência S3/MinIO Raw vs ClickHouse Curated. | 0 registros | Checksum/Audit | Must |
 
 ## 3. Segurança (Security)
 Proteção dos dados do marketplace e conformidade com acessos.
@@ -52,15 +52,15 @@ Foco na experiência do analista de dados e transparência do pipeline.
 | ID | Atributo | Descrição | Requisito | Fonte | Prioridade |
 |:---|:---|:---|:---|:---|:---|
 | RNF-16 | Portability | Lock-in de serviços AWS proprietários. | Uso de SQL/Python | ADR-01 | Should |
-| RNF-17 | Co-existence | Impacto do ETL em outras tarefas do RDS. | < 10% IOPS | RDS Metrics | Could |
+| RNF-17 | Co-existence | Impacto do ETL no consumo de CPU do ClickHouse. | < 50% CPU pico | CH Metrics | Could |
 | RNF-18 | Functional Suitability | Cobertura dos RFs definidos no doc 01. | 100% RTM | Matriz RTM | Must |
 
 ---
 
 ## Premissas Técnicas
-1. O AWS Academy Learner Lab permite o uso de SNS para alertas de monitoramento.
-2. A volumetria de 100k pedidos mantém o banco Postgres abaixo de 10GB/mês.
-3. Formato de entrada fixo em CSV/JSON conforme especificado no `spec/00_problem.md`.
+1. O AWS Academy Learner Lab permite o uso de EC2 para rodar o ClickHouse.
+2. A volumetria de 100k pedidos processada via ClickHouse utiliza compressão eficiente, mantendo o disco abaixo de 10GB/mês.
+3. Formato de entrada fixo em CSV/JSON/Parquet.
 
 ## Fontes de Medição
 - **CloudWatch**: Métricas de infraestrutura.

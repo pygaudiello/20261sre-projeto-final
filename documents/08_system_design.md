@@ -4,22 +4,25 @@
 
 ```mermaid
 graph LR
-    S3[(AWS S3 - Raw CSV)] -- trigger --> LMD[AWS Lambda - ETL Python]
-    LMD --> PG[(Postgres - Analytical)]
+    SRC[Fonte de Dados] -- Python Extract --> SUB_S3[("S3 / MinIO")]
+    SUB_S3 -- Python Load/Clean --> CH[(ClickHouse OLAP)]
+    DBT[dbt - SQL Models] -- "orchestrates" --> CH
+    AF[Airflow / Trigger] -- "runs" --> PY_SCR[Python Scripts / dbt]
+    CH -- query --> GNF[Grafana / BI]
     
-    subgraph Observabilidade Nativa
-        CW[CloudWatch Logs & Metrics] -- monitora --> LMD
-        CW -- monitora --> PG
-        CW -- alerta --> SNS[SNS Alerting]
-        CW -- visualiza --> CWD[CloudWatch Dashboards]
-    end
-    
-    subgraph Orquestração
-        SF[Step Functions / S3 Event] -- dispara --> LMD
+    subgraph SRE & Observabilidade
+        PY_AUD[Python Audit Scripts] -- valida --> CH
+        DBT_T[dbt tests] -- valida --> CH
+        GNF -- visualiza --> SLO[SLO Dashboards]
     end
 ```
 
 ## 2. Narrativa do Design
-O sistema foi otimizado para **baixo esforço de desenvolvimento** e alta eficiência de custo usando uma arquitetura **Serverless**. A ingestão é disparada automaticamente quando um novo arquivo chega ao S3 (**S3 Event Trigger**) ou através de um fluxo do **Step Functions**.
+O sistema é um híbrido de **Python** e **Modern Data Stack**. 
 
-O processamento é realizado por **AWS Lambdas** escritas em Python. Esta abordagem elimina a necessidade de configurar servidores, gerenciar Dockerfiles complexos ou se preocupar com escalabilidade de infraestrutura, permitindo focar exclusivamente na lógica de transformação de dados e nas regras de negócio. A estratégia de carga permanece com `upsert` no Postgres, garantindo integridade e idempotência de forma simples e direta.
+Python é a "cola" do sistema, sendo utilizado para:
+1. **Ingestão**: Scripts Python customizados para lidar com APIs ou arquivos brutos (Extract).
+2. **Qualidade e SRE**: Scripts Python que realizam auditoria de checksums, validação de PII (dados sensíveis) e scripts de "Chaos Engineering" para testar a resiliência do ClickHouse.
+3. **Transformações Complexas**: Antes da carga no ClickHouse, o Python (via Polars/Pandas) pode realizar limpezas que seriam ineficientes em SQL.
+
+O **dbt** entra na sequência para gerenciar a camada puramente analítica dentro do ClickHouse, garantindo que o SQL de negócio seja versionado e testado. Esta combinação oferece o melhor dos dois mundos: a flexibilidade do Python para infraestrutura e SRE, e a potência do SQL/dbt para modelagem de dados.

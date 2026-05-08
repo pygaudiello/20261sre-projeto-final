@@ -1,0 +1,107 @@
+version: '3.8'
+
+services:
+  # Object Storage (Local S3-Compatible)
+  minio:
+    image: minio/minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: password
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # OLAP Database (High Performance)
+  clickhouse:
+    image: clickhouse/clickhouse-server
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    environment:
+      - CLICKHOUSE_DB=olist_db
+      - CLICKHOUSE_USER=admin
+      - CLICKHOUSE_PASSWORD=password
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8123/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Python ETL & SRE Scripts
+  python_app:
+    build:
+      context: .
+      dockerfile: Dockerfile.python
+    volumes:
+      - ./scripts:/app/scripts
+      - ./data:/app/data
+    environment:
+      - CLICKHOUSE_HOST=clickhouse
+      - S3_ENDPOINT=http://minio:9000
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+
+  # Transformation Orchestrator (dbt)
+  dbt:
+    image: ghcr.io/dbt-labs/dbt-clickhouse:1.7.1
+    volumes:
+      - ./dbt_project:/usr/app/dbt_project
+    environment:
+      - DBT_CH_HOST=clickhouse
+      - DBT_CH_USER=admin
+      - DBT_CH_PASS=password
+      - DBT_CH_PORT=8123
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+
+  # Observabilidade - Métricas
+  prometheus:
+    image: prom/prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+
+  # Observabilidade - Dashboards
+  grafana:
+    image: grafana/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+
+  # Orquestrador (Simplificado para o exemplo)
+  airflow:
+    image: apache/airflow:2.7.1
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:13
+    environment:
+      - POSTGRES_USER=airflow
+      - POSTGRES_PASSWORD=airflow
+      - POSTGRES_DB=airflow
+
+networks:
+  default:
+    name: olist-sre-network

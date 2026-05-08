@@ -28,14 +28,18 @@ Este documento descreve a arquitetura do pipeline de dados Olist utilizando o fr
 **Objetivo**: Infraestrutura de suporte e mecanismos de resiliência.
 - **Runtimes de Execução**: **AWS Lambda** (Python) para tarefas leves/event-driven e **Containers Docker** para execuções dbt/ClickHouse.
 - **Nó de Storage (S3 / MinIO)**: Buffer de dados entre o Ingestor Python e o ClickHouse.
-- **Pilha de Observabilidade**: Logs estruturados em Python enviados ao CloudWatch/Loki.
+- **Visualização Analítica (Streamlit)**: Dashboard interativo em Python para consumo de KPIs e monitoramento de SLOs. (RF-19, RF-20)
+- **Pilha de Observabilidade**: CloudWatch Dashboards (Nativo Cloud) e Grafana/Prometheus (Métricas de Sistema).
+
+...
 
 ## 5. Technology Viewpoint (Visão de Tecnologia)
-**Objetivo**: Mix de Python e Modern Data Stack.
-- **Linguagem Principal**: **Python 3.x** para Ingestão, Auditoria e SRE Scripts.
-- **Transformação**: **dbt-core** para lógica SQL.
+**Objetivo**: Mix de Python e Modern Data Stack com Visualização "Streamlit-First".
+- **Linguagem Principal**: **Python 3.x** para Ingestão e Dashboards.
+- **Frontend / BI**: **Streamlit** conectado ao ClickHouse. (RNF-11, RNF-14)
+- **Transformação**: **dbt-core**.
 - **Engine OLAP**: **ClickHouse**.
-- **Bibliotecas Python**: `boto3`, `clickhouse-connect`, `polars` (performance), `pytest` (testes).
+- **Bibliotecas Python**: `streamlit`, `pandas`, `clickhouse-connect`, `plotly`, `polars`. (RNF-11)
 
 ---
 

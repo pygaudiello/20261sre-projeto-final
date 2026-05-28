@@ -1,0 +1,71 @@
+services:
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    container_name: olist_olap
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    environment:
+      - CLICKHOUSE_DB=olist_db
+      - CLICKHOUSE_USER=admin
+      - CLICKHOUSE_PASSWORD=password
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - ./scripts/create_raw_tables.sql:/docker-entrypoint-initdb.d/create_raw_tables.sql
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "-u", "admin:password", "http://localhost:8123/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  ingestion:
+    build:
+      context: .
+      dockerfile: Dockerfile.python
+    container_name: olist_ingestion
+    environment:
+      - CLICKHOUSE_HOST=clickhouse
+      - BUCKET_NAME=olist-data-pipeline-403783416520
+      - AWS_REGION=us-east-1
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+
+  dbt:
+    image: python:3.11-slim
+    container_name: olist_dbt
+    volumes:
+      - ./dbt_project:/dbt
+    working_dir: /dbt
+    environment:
+      - CLICKHOUSE_HOST=clickhouse
+      - CLICKHOUSE_USER=admin
+      - CLICKHOUSE_PASSWORD=password
+      - CLICKHOUSE_DB=olist_db
+    command: >
+      sh -c "pip install --no-cache-dir -q dbt-core dbt-clickhouse &&
+             python -c \"import urllib.request, base64, time; [time.sleep(5) for i in range(15) if not (i==14 or (urllib.request.urlopen(urllib.request.Request('http://clickhouse:8123/ping', headers={'Authorization':'Basic '+base64.b64encode(b'admin:password').decode()}),timeout=5) and print('ClickHouse OK') or exec('break')))]\" &&
+             dbt run --profiles-dir ."
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+
+  streamlit:
+    build:
+      context: .
+      dockerfile: Dockerfile.streamlit
+    container_name: olist_frontend
+    ports:
+      - "8501:8501"
+    environment:
+      - CLICKHOUSE_HOST=clickhouse
+      - CLICKHOUSE_DB=olist_db
+    depends_on:
+      - clickhouse
+
+volumes:
+  clickhouse_data:

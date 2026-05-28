@@ -1,183 +1,83 @@
 services:
-  # ==========================================
-  # 1. STORAGE LAYER (S3-Compatible)
-  # ==========================================
-  minio:
-    image: minio/minio
-    container_name: olist_storage_minio
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    environment:
-      MINIO_ROOT_USER: admin
-      MINIO_ROOT_PASSWORD: password
-    volumes:
-      - minio_data:/data
-    command: server /data --console-address ":9001"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - olist_network
-
-  # Helper to create bucket automatically
-  create_buckets:
-    image: minio/mc
-    depends_on:
-      minio:
-        condition: service_healthy
-    entrypoint: >
-      /bin/sh -c "
-      /usr/bin/mc alias set myminio http://minio:9000 admin password;
-      /usr/bin/mc mb --ignore-existing myminio/olist;
-      /usr/bin/mc policy set public myminio/olist;
-      exit 0;
-      "
-    networks:
-      - olist_network
-
-  # ==========================================
-  # 2. INGESTION & SRE LAYER (Python)
-  # ==========================================
-  python_app:
-    build:
-      context: .
-      dockerfile: Dockerfile.python
-    container_name: olist_ingestion_python
-    volumes:
-      - ./scripts:/app/scripts
-      - ./data:/app/data
-    environment:
-      - CLICKHOUSE_HOST=clickhouse
-      - S3_ENDPOINT=http://minio:9000
-      - S3_ACCESS_KEY=admin
-      - S3_SECRET_KEY=password
-      - BUCKET_NAME=olist
-    depends_on:
-      minio:
-        condition: service_healthy
-    networks:
-      - olist_network
-
-  # ==========================================
-  # 3. PROCESSING & OLAP LAYER (ClickHouse + dbt)
-  # ==========================================
   clickhouse:
     image: clickhouse/clickhouse-server:latest
-    container_name: olist_olap_clickhouse
+    container_name: olist_olap
     ports:
       - "8123:8123"
       - "9000:9000"
-    ulimits:
-      nofile:
-        soft: 262144
-        hard: 262144
     environment:
       - CLICKHOUSE_DB=olist_db
       - CLICKHOUSE_USER=admin
       - CLICKHOUSE_PASSWORD=password
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
     volumes:
       - clickhouse_data:/var/lib/clickhouse
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8123/ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - olist_network
+
+  ingestion:
+    image: python:3.11-slim
+    container_name: olist_ingestion
+    volumes:
+      - .:/app
+    working_dir: /app
+    env_file:
+      - .env
+    environment:
+      - CLICKHOUSE_HOST=clickhouse
+      - BUCKET_NAME=olist-data-pipeline-403783416520
+      - AWS_REGION=us-east-1
+    command: >
+      sh -c "
+        pip install --no-cache-dir -q boto3 clickhouse-connect python-dotenv &&
+        python scripts/wait_for_clickhouse.py &&
+        python scripts/ingest_data.py
+      "
+    depends_on:
+      - clickhouse
 
   dbt:
-    build:
-      context: .
-      dockerfile: Dockerfile.dbt
-    container_name: olist_transform_dbt
+    image: python:3.11-slim
+    container_name: olist_dbt
     volumes:
-      - ./dbt_project:/usr/app/dbt_project
+      - ./dbt_project:/dbt
+      - ./scripts:/scripts
+    working_dir: /dbt
     environment:
-      - DBT_CH_HOST=clickhouse
-      - DBT_CH_USER=admin
-      - DBT_CH_PASS=password
-      - DBT_CH_PORT=8123
+      - CLICKHOUSE_HOST=clickhouse
+      - CLICKHOUSE_USER=admin
+      - CLICKHOUSE_PASSWORD=password
+      - CLICKHOUSE_DB=olist_db
+    command: >
+      sh -c "
+        pip install --no-cache-dir -q dbt-core dbt-clickhouse &&
+        python /scripts/wait_for_clickhouse.py &&
+        dbt run --profiles-dir .
+      "
     depends_on:
-      clickhouse:
-        condition: service_healthy
-    networks:
-      - olist_network
+      - clickhouse
 
-  # ==========================================
-  # 4. ORCHESTRATION LAYER (Airflow)
-  # ==========================================
-  airflow:
-    image: apache/airflow:2.7.1
-    container_name: olist_orchestrator
-    environment:
-      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
-      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
-      - AIRFLOW__CORE__LOAD_EXAMPLES=False
-    ports:
-      - "8080:8080"
-    depends_on:
-      - postgres
-    networks:
-      - olist_network
-
-  postgres:
-    image: postgres:13
-    container_name: olist_metadata_db
-    environment:
-      - POSTGRES_USER=airflow
-      - POSTGRES_PASSWORD=airflow
-      - POSTGRES_DB=airflow
-    networks:
-      - olist_network
-
-  # ==========================================
-  # 5. FRONTEND & OBSERVABILITY LAYER
-  # ==========================================
   streamlit:
-    build:
-      context: .
-      dockerfile: Dockerfile.streamlit
-    container_name: olist_frontend_streamlit
+    image: python:3.11-slim
+    container_name: olist_frontend
     ports:
       - "8501:8501"
     volumes:
-      - ./streamlit_app:/app
+      - .:/app
+    working_dir: /app
     environment:
       - CLICKHOUSE_HOST=clickhouse
       - CLICKHOUSE_DB=olist_db
+      - STREAMLIT_SERVER_PORT=8501
+      - STREAMLIT_SERVER_ADDRESS=0.0.0.0
+    command: >
+      sh -c "
+        pip install --no-cache-dir -q streamlit pandas clickhouse-connect python-dotenv &&
+        python3 -m streamlit run streamlit_app/app.py --server.port=8501 --server.address=0.0.0.0
+      "
     depends_on:
-      clickhouse:
-        condition: service_healthy
-    networks:
-      - olist_network
-
-  prometheus:
-    image: prom/prometheus
-    container_name: olist_metrics_prometheus
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
-    networks:
-      - olist_network
-
-  grafana:
-    image: grafana/grafana
-    container_name: olist_viz_grafana
-    ports:
-      - "3000:3000"
-    depends_on:
-      - prometheus
-    networks:
-      - olist_network
-
-networks:
-  olist_network:
-    driver: bridge
+      - clickhouse
 
 volumes:
-  minio_data:
   clickhouse_data:

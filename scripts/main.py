@@ -1,37 +1,27 @@
 import os
-import boto3
-import clickhouse_connect
-from dotenv import load_dotenv
+import sys
 
-load_dotenv()
+def check_environment():
+    required_vars = [
+        'CLICKHOUSE_HOST', 'CLICKHOUSE_USER', 'CLICKHOUSE_PASSWORD', 'CLICKHOUSE_DB',
+        'BUCKET_NAME', 'AWS_REGION'
+    ]
+    missing = [v for v in required_vars if not os.getenv(v)]
+    if missing:
+        print(f"Variáveis ausentes: {missing}")
+        return False
+    return True
 
-def check_connections():
-    print("Checking connections...")
-    
-    # MinIO
-    try:
-        s3 = boto3.client(
-            's3',
-            endpoint_url=os.getenv('S3_ENDPOINT', 'http://minio:9000'),
-            aws_access_key_id=os.getenv('S3_ACCESS_KEY', 'admin'),
-            aws_secret_access_key=os.getenv('S3_SECRET_KEY', 'password')
-        )
-        s3.list_buckets()
-        print("✅ MinIO Connection: OK")
-    except Exception as e:
-        print(f"❌ MinIO Connection Failed: {e}")
+def main():
+    print("Olist Data Pipeline — Camada de Ingestão")
+    print("=" * 40)
 
-    # ClickHouse
-    try:
-        client = clickhouse_connect.get_client(
-            host=os.getenv('CLICKHOUSE_HOST', 'clickhouse'),
-            username=os.getenv('CLICKHOUSE_USER', 'admin'),
-            password=os.getenv('CLICKHOUSE_PASSWORD', 'password'),
-            port=8123
-        )
-        print(f"✅ ClickHouse Connection: OK (Version {client.server_version})")
-    except Exception as e:
-        print(f"❌ ClickHouse Connection Failed: {e}")
+    if not check_environment():
+        sys.exit(1)
+
+    print("Ambiente OK. Executando ingestão...")
+    from ingest_data import sync_all
+    sync_all()
 
 if __name__ == "__main__":
-    check_connections()
+    main()

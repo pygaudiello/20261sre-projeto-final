@@ -1,5 +1,15 @@
 # Arquitetura do Sistema (RM-ODP)
 
+> **⚠️ CONTEXTO ARQUITETURAL (BASS & ATAM):**
+> Este pipeline foi projetado seguindo os **cenários de qualidade BASS** (Software Architecture in Practice) e validado via **análise de tradeoffs ATAM**.
+> **ANTES DE ALTERAR QUALQUER COMPONENTE**, revise:
+> - `GEMINI.md` — seção "BASS & ATAM — Architectural Context"
+> - As implicações nos atributos de qualidade (Performance, Disponibilidade, Modificabilidade)
+> - Os tradeoffs documentados (ATAM): performance vs flexibilidade, modificabilidade vs latência
+>
+> **Modelo de dados atual:** O bucket S3 contém **apenas dados de pedidos** (`data_teste_atualizado.csv`, `data_teste_olist.csv`).
+> O pipeline foi adaptado para este modelo único (tabela `raw_orders` com 8 colunas). Veja `GEMINI.md` para detalhes.
+
 Este documento descreve a arquitetura do pipeline de dados Olist utilizando o framework RM-ODP (ISO/IEC 10746), garantindo o atendimento a 100% dos requisitos funcionais (RF) e não funcionais (RNF).
 
 ## 1. Enterprise Viewpoint (Visão de Empresa)
@@ -43,7 +53,44 @@ Este documento descreve a arquitetura do pipeline de dados Olist utilizando o fr
 
 ---
 
+## 6. BASS Quality Attribute Scenarios (Software Architecture in Practice)
+
+Para garantir que a arquitetura atenda aos objetivos de negócio, aplicamos os cenários de atributos de qualidade de Bass et al.:
+
+- **Disponibilidade (Availability)**:
+    - *Estímulo*: Falha em um nó do ClickHouse ou indisponibilidade temporária do S3.
+    - *Resposta*: O pipeline deve ser capaz de realizar retries automáticos (via Airflow/Lambda). Os dados brutos permanecem no S3 para reprocessamento.
+    - *Métrica*: 99.9% de disponibilidade dos dados para consulta no dashboard.
+
+- **Desempenho (Performance)**:
+    - *Estímulo*: Chegada de 100k pedidos em um único lote diário.
+    - *Resposta*: Ingestão nativa `s3()` do ClickHouse e processamento paralelo via ThreadPoolExecutor no Python.
+    - *Métrica*: Ingestão e transformação concluídas em menos de 10 minutos.
+
+- **Modificabilidade (Modifiability)**:
+    - *Estímulo*: Mudança na regra de cálculo de SLA de entrega ou adição de uma nova coluna no CSV de origem.
+    - *Resposta*: Alteração centralizada no modelo dbt sem impactar os scripts de ingestão.
+    - *Métrica*: Tempo de desenvolvimento e deploy da mudança < 1 dia.
+
+## 7. ATAM (Architecture Tradeoff Analysis Method) - Análise de Compromissos
+
+| Decisão Arquitetural | Atributos Afetados | Tradeoff / Sensibilidade |
+| :--- | :--- | :--- |
+| **Ingestão Nativa S3 -> ClickHouse** | Performance (+) vs Flexibilidade (-) | **Sensibilidade**: Altíssima performance de carga, mas exige que o CSV esteja bem formatado. Limpeza complexa de PII deve ocorrer antes ou via Views. |
+| **Uso de dbt para Transformação** | Modificabilidade (+) vs Latência (-) | **Tradeoff**: Facilita a manutenção e linhagem, mas introduz uma etapa extra de processamento (Batch) em vez de transformações em tempo real. |
+| **Arquitetura Serverless (Lambda)** | Custo (+) vs Cold Start (-) | **Tradeoff**: Reduz custo operacional drasticamente, mas pode sofrer com limites de tempo de execução (15min) para lotes gigantescos. |
+| **ClickHouse como Engine** | Performance Queries (+) vs Complexidade Operacional (-) | **Sensibilidade**: Queries sub-segundo para milhões de linhas, mas exige gestão de partições e índices específicos (MergeTree). |
+
+---
+
 ## ADRs (Architecture Decision Records)
+
+### ADR-08: Adaptação para Modelo Único de Pedidos (CSV Real)
+- **Contexto**: O dataset real no S3 contém apenas a tabela de pedidos (8 colunas), não o conjunto completo Olist (8 tabelas).
+- **Decisão**: Adaptar o pipeline para operar com uma única tabela `raw_orders`. Os scripts de ingestão mapeiam arquivos CSV por nome (`data_teste_atualizado` → `raw_orders`). O esquema estrela foi simplificado: staging → `dim_orders` + `fact_order_status`.
+- **BASS (Modificabilidade)**: A centralização no dbt permite adicionar novas tabelas sem modificar a ingestão.
+- **ATAM Tradeoff**: Simplicidade operacional (+) vs perda de riqueza analítica de múltiplas tabelas (-).
+- **Atendimento**: RF-01, RF-04, RF-11, RF-19.
 
 ### ADR-07: Python para Ingestão e Lógica Procedural
 - **Contexto**: Algumas tarefas como limpeza de PII, chamadas de API complexas e validações de integridade customizadas são difíceis de expressar apenas em SQL.

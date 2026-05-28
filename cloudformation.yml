@@ -1,0 +1,191 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'CloudFormation template for Olist Data Pipeline: S3 Bucket + EC2 (ClickHouse & Streamlit)'
+
+Parameters:
+  InstanceType:
+    Type: String
+    Default: t3.small
+    Description: EC2 instance type (t3.small has 2GB RAM, enough for ClickHouse + Streamlit).
+  
+  KeyName:
+    Type: String
+    Default: ""
+    Description: (Optional) Name of an existing EC2 KeyPair. Leave blank to use SSM only.
+
+  LabRoleName:
+    Type: String
+    Default: "LabRole"
+    Description: The name of the pre-existing IAM Role in AWS Academy (usually LabRole).
+
+  LatestAmiId:
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: '/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-6.1-x86_64'
+
+Resources:
+  # 1. STORAGE LAYER: S3 Bucket (Replacing MinIO)
+  OlistDataBucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Sub 'olist-data-pipeline-${AWS::AccountId}'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  # 2. IAM INSTANCE PROFILE (Using existing LabRole from AWS Academy)
+  OlistInstanceProfile:
+    Type: 'AWS::IAM::InstanceProfile'
+    Properties:
+      Roles:
+        - !Ref LabRoleName
+
+  # 3. SECURITY GROUP (Removed Port 22 for security/SSM)
+  OlistSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Enable ClickHouse (8123) and Streamlit (8501)
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 8123
+          ToPort: 8123
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 8501
+          ToPort: 8501
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 9000
+          ToPort: 9000
+          CidrIp: 0.0.0.0/0
+
+  # 4. EC2 INSTANCE (ClickHouse + Streamlit)
+  OlistEC2Instance:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      InstanceType: !Ref InstanceType
+      KeyName: !If [HasKey, !Ref KeyName, !Ref "AWS::NoValue"]
+      ImageId: !Ref LatestAmiId
+      IamInstanceProfile: !Ref OlistInstanceProfile
+      SecurityGroupIds:
+        - !GetAtt OlistSecurityGroup.GroupId
+      Tags:
+        - Key: Name
+          Value: Olist-Data-Pipeline-Server
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          # Update and install Docker
+          dnf update -y
+          dnf install -y docker git
+          systemctl start docker
+          systemctl enable docker
+
+          # Install Docker Compose
+          curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+          chmod +x /usr/local/bin/docker-compose
+          ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose
+
+          # App directory
+          mkdir -p /opt/olist/app
+          cd /opt/olist/app
+
+          # Create production docker-compose.yml
+          cat <<EOF > docker-compose.yml
+          services:
+            clickhouse:
+              image: clickhouse/clickhouse-server:latest
+              container_name: olist_olap
+              ports:
+                - "8123:8123"
+              environment:
+                - CLICKHOUSE_DB=olist_db
+                - CLICKHOUSE_USER=admin
+                - CLICKHOUSE_PASSWORD=password
+              ulimits:
+                nofile:
+                  soft: 262144
+                  hard: 262144
+              volumes:
+                - clickhouse_data:/var/lib/clickhouse
+
+            streamlit:
+              build: 
+                context: .
+                dockerfile: Dockerfile.streamlit
+              container_name: olist_frontend
+              ports:
+                - "8501:8501"
+              environment:
+                - CLICKHOUSE_HOST=clickhouse
+                - CLICKHOUSE_DB=olist_db
+              depends_on:
+                - clickhouse
+
+            ingestion:
+              build:
+                context: .
+                dockerfile: Dockerfile.python
+              container_name: olist_ingestion
+              environment:
+                - CLICKHOUSE_HOST=clickhouse
+                - BUCKET_NAME=${OlistDataBucket}
+                - AWS_REGION=${AWS::Region}
+                - S3_ENDPOINT=https://s3.${AWS::Region}.amazonaws.com
+              depends_on:
+                - clickhouse
+
+          volumes:
+            clickhouse_data:
+          EOF
+
+          # Recreate environment files for build
+          cat <<EOF > requirements.txt
+          pandas==2.2.0
+          boto3==1.34.40
+          clickhouse_connect==0.7.1
+          python-dotenv==1.0.1
+          streamlit==1.31.0
+          EOF
+
+          cat <<EOF > Dockerfile.python
+          FROM python:3.11-slim
+          WORKDIR /app
+          COPY requirements.txt .
+          RUN pip install --no-cache-dir -r requirements.txt
+          COPY . .
+          CMD ["python", "scripts/main.py"]
+          EOF
+
+          cat <<EOF > Dockerfile.streamlit
+          FROM python:3.11-slim
+          WORKDIR /app
+          COPY requirements.txt .
+          RUN pip install --no-cache-dir -r requirements.txt
+          COPY . .
+          EXPOSE 8501
+          ENTRYPOINT ["streamlit", "run", "streamlit_app/app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+          EOF
+
+          # Recreate scripts directory structure (placeholder for actual files)
+          mkdir -p scripts streamlit_app
+
+Conditions:
+  HasKey: !Not [!Equals [!Ref KeyName, ""]]
+
+Outputs:
+  BucketName:
+    Description: Name of the S3 Bucket
+    Value: !Ref OlistDataBucket
+  
+  InstancePublicIp:
+    Description: Public IP of the EC2 Instance
+    Value: !GetAtt OlistEC2Instance.PublicIp
+
+  StreamlitURL:
+    Description: URL for the Streamlit App
+    Value: !Sub 'http://${OlistEC2Instance.PublicIp}:8501'
+
+  ClickHouseURL:
+    Description: URL for ClickHouse HTTP interface
+    Value: !Sub 'http://${OlistEC2Instance.PublicIp}:8123'

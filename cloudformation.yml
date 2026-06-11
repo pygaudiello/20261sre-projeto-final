@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'CloudFormation template for Olist Data Pipeline: S3 Bucket + EC2 (ClickHouse & Streamlit)'
+Description: 'CloudFormation template for Northwind Data Pipeline: S3 Bucket + EC2 (ClickHouse & Streamlit)'
 
 Parameters:
   InstanceType:
@@ -23,10 +23,10 @@ Parameters:
 
 Resources:
   # 1. STORAGE LAYER: S3 Bucket (Replacing MinIO)
-  OlistDataBucket:
+  NorthwindDataBucket:
     Type: 'AWS::S3::Bucket'
     Properties:
-      BucketName: !Sub 'olist-data-pipeline-${AWS::AccountId}'
+      BucketName: !Sub 'northwind-data-pipeline-${AWS::AccountId}'
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true
@@ -34,14 +34,14 @@ Resources:
         RestrictPublicBuckets: true
 
   # 2. IAM INSTANCE PROFILE (Using existing LabRole from AWS Academy)
-  OlistInstanceProfile:
+  NorthwindInstanceProfile:
     Type: 'AWS::IAM::InstanceProfile'
     Properties:
       Roles:
         - !Ref LabRoleName
 
   # 3. SECURITY GROUP (Removed Port 22 for security/SSM)
-  OlistSecurityGroup:
+  NorthwindSecurityGroup:
     Type: 'AWS::EC2::SecurityGroup'
     Properties:
       GroupDescription: Enable ClickHouse (8123) and Streamlit (8501)
@@ -60,18 +60,18 @@ Resources:
           CidrIp: 0.0.0.0/0
 
   # 4. EC2 INSTANCE (ClickHouse + Streamlit)
-  OlistEC2Instance:
+  NorthwindEC2Instance:
     Type: 'AWS::EC2::Instance'
     Properties:
       InstanceType: !Ref InstanceType
       KeyName: !If [HasKey, !Ref KeyName, !Ref "AWS::NoValue"]
       ImageId: !Ref LatestAmiId
-      IamInstanceProfile: !Ref OlistInstanceProfile
+      IamInstanceProfile: !Ref NorthwindInstanceProfile
       SecurityGroupIds:
-        - !GetAtt OlistSecurityGroup.GroupId
+        - !GetAtt NorthwindSecurityGroup.GroupId
       Tags:
         - Key: Name
-          Value: Olist-Data-Pipeline-Server
+          Value: Northwind-Data-Pipeline-Server
       UserData:
         Fn::Base64: !Sub |
           #!/bin/bash
@@ -87,19 +87,19 @@ Resources:
           ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose
 
           # App directory
-          mkdir -p /opt/olist/app
-          cd /opt/olist/app
+          mkdir -p /opt/northwind/app
+          cd /opt/northwind/app
 
           # Create production docker-compose.yml
           cat <<EOF > docker-compose.yml
           services:
             clickhouse:
               image: clickhouse/clickhouse-server:latest
-              container_name: olist_olap
+              container_name: northwind_olap
               ports:
                 - "8123:8123"
               environment:
-                - CLICKHOUSE_DB=olist_db
+                - CLICKHOUSE_DB=northwind_db
                 - CLICKHOUSE_USER=admin
                 - CLICKHOUSE_PASSWORD=password
               ulimits:
@@ -113,12 +113,12 @@ Resources:
               build: 
                 context: .
                 dockerfile: Dockerfile.streamlit
-              container_name: olist_frontend
+              container_name: northwind_frontend
               ports:
                 - "8501:8501"
               environment:
                 - CLICKHOUSE_HOST=clickhouse
-                - CLICKHOUSE_DB=olist_db
+                - CLICKHOUSE_DB=northwind_db
               depends_on:
                 - clickhouse
 
@@ -126,10 +126,10 @@ Resources:
               build:
                 context: .
                 dockerfile: Dockerfile.python
-              container_name: olist_ingestion
+              container_name: northwind_ingestion
               environment:
                 - CLICKHOUSE_HOST=clickhouse
-                - BUCKET_NAME=${OlistDataBucket}
+                - BUCKET_NAME=${NorthwindDataBucket}
                 - AWS_REGION=${AWS::Region}
                 - S3_ENDPOINT=https://s3.${AWS::Region}.amazonaws.com
               depends_on:
@@ -176,16 +176,16 @@ Conditions:
 Outputs:
   BucketName:
     Description: Name of the S3 Bucket
-    Value: !Ref OlistDataBucket
+    Value: !Ref NorthwindDataBucket
   
   InstancePublicIp:
     Description: Public IP of the EC2 Instance
-    Value: !GetAtt OlistEC2Instance.PublicIp
+    Value: !GetAtt NorthwindEC2Instance.PublicIp
 
   StreamlitURL:
     Description: URL for the Streamlit App
-    Value: !Sub 'http://${OlistEC2Instance.PublicIp}:8501'
+    Value: !Sub 'http://${NorthwindEC2Instance.PublicIp}:8501'
 
   ClickHouseURL:
     Description: URL for ClickHouse HTTP interface
-    Value: !Sub 'http://${OlistEC2Instance.PublicIp}:8123'
+    Value: !Sub 'http://${NorthwindEC2Instance.PublicIp}:8123'

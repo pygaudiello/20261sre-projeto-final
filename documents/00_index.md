@@ -1,6 +1,6 @@
 # Index - Documentation Directory
 
-Este diretório contém a documentação técnica e de processos para o Desafio Olist SRE & Data Engineering.
+Este diretório contém a documentação técnica e de processos para o Desafio Northwind SRE & Data Engineering.
 
 ## Estrutura de Arquivos
 

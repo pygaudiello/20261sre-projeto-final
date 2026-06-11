@@ -1,7 +1,7 @@
-# GEMINI.md · olist-sre-pipeline
+# GEMINI.md · northwind-sre-pipeline
 
 ## Contexto
-Pipeline de dados Olist em AWS Academy Learner Lab (us-east-1).
+Pipeline de dados Northwind em AWS Academy Learner Lab (us-east-1).
 ETL Python -> Postgres -> Grafana. SRE-first.
 
 ## Diretrizes de Resposta

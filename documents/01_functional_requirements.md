@@ -1,6 +1,6 @@
 # Requisitos Funcionais (RF)
 
-Este documento detalha os requisitos funcionais do pipeline de dados Olist, organizados pelas fases do ciclo de vida do dado.
+Este documento detalha os requisitos funcionais do pipeline de dados Northwind, organizados pelas fases do ciclo de vida do dado.
 
 ## 1. Fase de Ingestão e Captura
 | ID | Requisito | Descrição | Critérios de Aceite |

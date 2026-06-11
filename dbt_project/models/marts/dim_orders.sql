@@ -1,31 +1,36 @@
 with stg_orders as (
-    select * from {{ ref('stg_pedidos') }}
+    select * from {{ ref('stg_orders') }}
+),
+
+stg_details as (
+    select
+        order_id,
+        sum(quantity) as total_items,
+        sum(total_price) as total_revenue
+    from {{ ref('stg_order_details') }}
+    group by order_id
 )
 
 select
-    order_id,
-    customer_id,
-    order_status,
-    order_purchase_timestamp,
-    order_approved_at,
-    order_delivered_carrier_date,
-    order_delivered_customer_date,
-    order_estimated_delivery_date,
-    approval_hours,
-    delivery_hours,
-    estimated_delivery_days,
+    o.order_id,
+    o.customer_id,
+    o.employee_id,
+    o.order_date,
+    o.required_date,
+    o.shipped_date,
+    o.ship_country,
+    o.freight,
+    o.days_to_ship,
+    o.required_days,
+    d.total_items,
+    d.total_revenue,
 
     case
-        when order_status = 'delivered' and order_delivered_customer_date <= order_estimated_delivery_date
-            then 'on_time'
-        when order_status = 'delivered' and order_delivered_customer_date > order_estimated_delivery_date
-            then 'late'
-        when order_status = 'delivered'
-            then 'unknown'
-        else 'not_delivered'
-    end as delivery_performance,
-
-    date_diff('day', order_purchase_timestamp, order_delivered_customer_date) as actual_delivery_days,
+        when o.shipped_date <= o.required_date then 'on_time'
+        when o.shipped_date > o.required_date then 'late'
+        else 'not_shipped'
+    end as shipping_performance,
 
     now() as updated_at
-from stg_orders
+from stg_orders o
+left join stg_details d on o.order_id = d.order_id

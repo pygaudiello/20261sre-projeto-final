@@ -7,10 +7,10 @@
 > - As implicações nos atributos de qualidade (Performance, Disponibilidade, Modificabilidade)
 > - Os tradeoffs documentados (ATAM): performance vs flexibilidade, modificabilidade vs latência
 >
-> **Modelo de dados atual:** O bucket S3 contém **apenas dados de pedidos** (`data_teste_atualizado.csv`, `data_teste_olist.csv`).
+> **Modelo de dados atual:** O bucket S3 contém **apenas dados de pedidos** (`data_teste_atualizado.csv`, `data_teste_northwind.csv`).
 > O pipeline foi adaptado para este modelo único (tabela `raw_orders` com 8 colunas). Veja `GEMINI.md` para detalhes.
 
-Este documento descreve a arquitetura do pipeline de dados Olist utilizando o framework RM-ODP (ISO/IEC 10746), garantindo o atendimento a 100% dos requisitos funcionais (RF) e não funcionais (RNF).
+Este documento descreve a arquitetura do pipeline de dados Northwind utilizando o framework RM-ODP (ISO/IEC 10746), garantindo o atendimento a 100% dos requisitos funcionais (RF) e não funcionais (RNF).
 
 ## 1. Enterprise Viewpoint (Visão de Empresa)
 **Objetivo**: Processar 100k pedidos/dia para gerar dashboards analíticos confiáveis.
@@ -86,7 +86,7 @@ Para garantir que a arquitetura atenda aos objetivos de negócio, aplicamos os c
 ## ADRs (Architecture Decision Records)
 
 ### ADR-08: Adaptação para Modelo Único de Pedidos (CSV Real)
-- **Contexto**: O dataset real no S3 contém apenas a tabela de pedidos (8 colunas), não o conjunto completo Olist (8 tabelas).
+- **Contexto**: O dataset real no S3 contém apenas a tabela de pedidos (8 colunas), não o conjunto completo Northwind (8 tabelas).
 - **Decisão**: Adaptar o pipeline para operar com uma única tabela `raw_orders`. Os scripts de ingestão mapeiam arquivos CSV por nome (`data_teste_atualizado` → `raw_orders`). O esquema estrela foi simplificado: staging → `dim_orders` + `fact_order_status`.
 - **BASS (Modificabilidade)**: A centralização no dbt permite adicionar novas tabelas sem modificar a ingestão.
 - **ATAM Tradeoff**: Simplicidade operacional (+) vs perda de riqueza analítica de múltiplas tabelas (-).

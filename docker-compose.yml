@@ -1,12 +1,12 @@
 services:
   clickhouse:
     image: clickhouse/clickhouse-server:latest
-    container_name: olist_olap
+    container_name: northwind_olap
     ports:
       - "8123:8123"
       - "9000:9000"
     environment:
-      - CLICKHOUSE_DB=olist_db
+      - CLICKHOUSE_DB=northwind_db
       - CLICKHOUSE_USER=admin
       - CLICKHOUSE_PASSWORD=password
     ulimits:
@@ -18,7 +18,7 @@ services:
 
   ingestion:
     image: python:3.11-slim
-    container_name: olist_ingestion
+    container_name: northwind_ingestion
     volumes:
       - .:/app
     working_dir: /app
@@ -26,7 +26,7 @@ services:
       - .env
     environment:
       - CLICKHOUSE_HOST=clickhouse
-      - BUCKET_NAME=olist-data-pipeline-403783416520
+      - BUCKET_NAME=northwind-data-pipeline-403783416520
       - AWS_REGION=us-east-1
     command: >
       sh -c "
@@ -39,7 +39,7 @@ services:
 
   dbt:
     image: python:3.11-slim
-    container_name: olist_dbt
+    container_name: northwind_dbt
     volumes:
       - ./dbt_project:/dbt
       - ./scripts:/scripts
@@ -48,7 +48,7 @@ services:
       - CLICKHOUSE_HOST=clickhouse
       - CLICKHOUSE_USER=admin
       - CLICKHOUSE_PASSWORD=password
-      - CLICKHOUSE_DB=olist_db
+      - CLICKHOUSE_DB=northwind_db
     command: >
       sh -c "
         pip install --no-cache-dir -q dbt-core dbt-clickhouse &&
@@ -60,7 +60,7 @@ services:
 
   streamlit:
     image: python:3.11-slim
-    container_name: olist_frontend
+    container_name: northwind_frontend
     ports:
       - "8501:8501"
     volumes:
@@ -68,7 +68,7 @@ services:
     working_dir: /app
     environment:
       - CLICKHOUSE_HOST=clickhouse
-      - CLICKHOUSE_DB=olist_db
+      - CLICKHOUSE_DB=northwind_db
       - STREAMLIT_SERVER_PORT=8501
       - STREAMLIT_SERVER_ADDRESS=0.0.0.0
     command: >

@@ -1,7 +1,7 @@
 # Skill: Elicit Functional Requirements
 
 ## Objetivo
-Refinar e expandir os Requisitos Funcionais (RF) para o pipeline Olist ETL.
+Refinar e expandir os Requisitos Funcionais (RF) para o pipeline Northwind ETL.
 
 ## Contexto de Referência
 Sempre consultar `spec/00_problem.md` para entender os pilares de Idempotência, Observabilidade e Resiliência.

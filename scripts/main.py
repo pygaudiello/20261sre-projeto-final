@@ -13,7 +13,7 @@ def check_environment():
     return True
 
 def main():
-    print("Olist Data Pipeline — Camada de Ingestão")
+    print("Northwind Data Pipeline — Camada de Ingestão")
     print("=" * 40)
 
     if not check_environment():

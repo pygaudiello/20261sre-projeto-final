@@ -1,6 +1,6 @@
-# Project Context: Olist SRE & Data Engineering Challenge
+# Project Context: Northwind SRE & Data Engineering Challenge
 
-This repository contains the specifications and architectural modeling for a reliable data engineering pipeline. It focuses on the ingestion, processing, and visualization of Olist marketplace data while ensuring system resilience and data trustworthiness.
+This repository contains the specifications and architectural modeling for a reliable data engineering pipeline. It focuses on the ingestion, processing, and visualization of Northwind marketplace data while ensuring system resilience and data trustworthiness.
 
 ## Project Overview
 
@@ -44,17 +44,18 @@ The project implements a **Medallion Architecture pipeline** (Raw → Trusted �
    - SLOs/SLIs visíveis no dashboard.
    - *BASS Availability:* Healthchecks + dados imutáveis para recovery.
 
-### Modelo de Dados Atual (CSV no S3)
+### Modelo de Dados Atual (CSVs no S3)
 
-O dataset real contém **apenas a tabela de pedidos** (não o conjunto Olist completo de 8 tabelas):
+O dataset real agora contém duas tabelas relacionadas:
 
-```csv
-order_id,customer_id,order_status,order_purchase_timestamp,order_approved_at,
-order_delivered_carrier_date,order_delivered_customer_date,order_estimated_delivery_date
-```
+**1. `northwind_orders.csv`**
+`order_id,customer_id,employee_id,order_date,required_date,shipped_date,ship_via,freight,ship_name,ship_address,ship_city,ship_region,ship_postal_code,ship_country`
 
-**Bucket S3:** `olist-data-pipeline-{AccountId}`
-**CSVs:** `raw/data_teste_atualizado.csv`, `raw/data_teste_olist.csv`
+**2. `northwind_order_details.csv`**
+`order_id,product_id,unit_price,quantity,discount`
+
+**Bucket S3:** `northwind-data-pipeline-{AccountId}`
+**CSVs:** `raw/northwind_orders.csv`, `raw/northwind_order_details.csv`
 
 ---
 

@@ -1,6 +1,6 @@
 # Requisitos Não Funcionais (RNF) - Modelo ISO 25010
 
-Este documento define os atributos de qualidade para o pipeline Olist ETL, estruturados conforme a norma ISO 25010 e priorizados pelo método MoSCoW.
+Este documento define os atributos de qualidade para o pipeline Northwind ETL, estruturados conforme a norma ISO 25010 e priorizados pelo método MoSCoW.
 
 ## 1. Eficiência de Desempenho (Performance Efficiency)
 Foco na capacidade do sistema de processar 100k pedidos/dia dentro das janelas de negócio.

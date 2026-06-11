@@ -1,33 +1,29 @@
 with stg_orders as (
-    select * from {{ ref('stg_pedidos') }}
+    select * from {{ ref('stg_orders') }}
 ),
 
 status_fact as (
     select
         order_id,
         customer_id,
-        order_status as current_status,
-        order_purchase_timestamp,
-        order_approved_at,
-        order_delivered_carrier_date,
-        order_delivered_customer_date,
-        order_estimated_delivery_date,
-        ingested_at as batch_timestamp,
+        order_date,
+        shipped_date,
+        required_date,
 
         case
-            when order_status = 'delivered' then 1
+            when shipped_date is not null then 1
             else 0
-        end as is_delivered,
+        end as is_shipped,
 
         case
-            when order_approved_at is not null then 1
+            when shipped_date <= required_date then 1
             else 0
-        end as is_approved,
+        end as is_on_time,
 
         case
-            when order_delivered_carrier_date is not null then 1
+            when shipped_date > required_date then 1
             else 0
-        end as is_with_carrier
+        end as is_late
     from stg_orders
 )
 

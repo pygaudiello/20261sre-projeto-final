@@ -1,8 +1,9 @@
 version: 2
 
 sources:
-  - name: olist_db
-    database: olist_db
-    schema: olist_db
+  - name: northwind_db
+    database: northwind_db
+    schema: northwind_db
     tables:
       - name: raw_orders
+      - name: raw_order_details

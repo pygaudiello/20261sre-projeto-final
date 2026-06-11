@@ -5,11 +5,11 @@
 
 set -euo pipefail
 
-BUCKET="olist-data-pipeline-403783416520"
+BUCKET="northwind-data-pipeline-403783416520"
 CSV_FILE="data_teste_atualizado.csv"
 S3_PATH="raw/"
 
-echo "Olist Pipeline — Setup Automatizado"
+echo "Northwind Pipeline — Setup Automatizado"
 echo "==================================="
 
 # 1. Upload CSV para o S3 (se ainda não estiver lá)

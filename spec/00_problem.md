@@ -1,7 +1,7 @@
-# Contexto do Problema: Pipeline de Dados Olist
+# Contexto do Problema: Pipeline de Dados Northwind
 
 ## Visão Geral
-O marketplace Olist necessita de uma infraestrutura de dados robusta para processar o volume diário de vendas e gerar insights analíticos. O sistema deve transformar dados brutos de pedidos em informações estratégicas para dashboards de monitoramento diário.
+O marketplace Northwind necessita de uma infraestrutura de dados robusta para processar o volume diário de vendas e gerar insights analíticos. O sistema deve transformar dados brutos de pedidos em informações estratégicas para dashboards de monitoramento diário.
 
 ## Desafio Técnico
 Processar aproximadamente **100 mil pedidos diários** provenientes do marketplace.

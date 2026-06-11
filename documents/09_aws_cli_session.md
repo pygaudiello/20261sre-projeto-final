@@ -17,11 +17,11 @@ aws sts get-caller-identity
 ## 3. Comandos Úteis para o Projeto
 - Listar arquivos brutos no S3:
   ```bash
-  aws s3 ls s3://meu-bucket-olist/raw/
+  aws s3 ls s3://meu-bucket-northwind/raw/
   ```
 - Upload de um novo arquivo para teste:
   ```bash
-  aws s3 cp dados_teste.csv s3://meu-bucket-olist/raw/
+  aws s3 cp dados_teste.csv s3://meu-bucket-northwind/raw/
   ```
 
 ## 4. Persistência de Sessão

@@ -1,12 +1,12 @@
 services:
   clickhouse:
     image: clickhouse/clickhouse-server:latest
-    container_name: olist_olap
+    container_name: northwind_olap
     ports:
       - "8123:8123"
       - "9000:9000"
     environment:
-      - CLICKHOUSE_DB=olist_db
+      - CLICKHOUSE_DB=northwind_db
       - CLICKHOUSE_USER=admin
       - CLICKHOUSE_PASSWORD=password
     ulimits:
@@ -26,10 +26,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.python
-    container_name: olist_ingestion
+    container_name: northwind_ingestion
     environment:
       - CLICKHOUSE_HOST=clickhouse
-      - BUCKET_NAME=olist-data-pipeline-403783416520
+      - BUCKET_NAME=northwind-data-pipeline-403783416520
       - AWS_REGION=us-east-1
     depends_on:
       clickhouse:
@@ -37,7 +37,7 @@ services:
 
   dbt:
     image: python:3.11-slim
-    container_name: olist_dbt
+    container_name: northwind_dbt
     volumes:
       - ./dbt_project:/dbt
     working_dir: /dbt
@@ -45,7 +45,7 @@ services:
       - CLICKHOUSE_HOST=clickhouse
       - CLICKHOUSE_USER=admin
       - CLICKHOUSE_PASSWORD=password
-      - CLICKHOUSE_DB=olist_db
+      - CLICKHOUSE_DB=northwind_db
     command: >
       sh -c "pip install --no-cache-dir -q dbt-core dbt-clickhouse &&
              python -c \"import urllib.request, base64, time; [time.sleep(5) for i in range(15) if not (i==14 or (urllib.request.urlopen(urllib.request.Request('http://clickhouse:8123/ping', headers={'Authorization':'Basic '+base64.b64encode(b'admin:password').decode()}),timeout=5) and print('ClickHouse OK') or exec('break')))]\" &&
@@ -58,12 +58,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.streamlit
-    container_name: olist_frontend
+    container_name: northwind_frontend
     ports:
       - "8501:8501"
     environment:
       - CLICKHOUSE_HOST=clickhouse
-      - CLICKHOUSE_DB=olist_db
+      - CLICKHOUSE_DB=northwind_db
     depends_on:
       - clickhouse
 

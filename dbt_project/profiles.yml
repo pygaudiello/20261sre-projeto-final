@@ -1,4 +1,4 @@
-olist_profile:
+northwind_profile:
   target: dev
   outputs:
     dev:
@@ -7,6 +7,6 @@ olist_profile:
       port: 8123
       user: "{{ env_var('CLICKHOUSE_USER', 'admin') }}"
       password: "{{ env_var('CLICKHOUSE_PASSWORD', 'password') }}"
-      schema: "{{ env_var('CLICKHOUSE_DB', 'olist_db') }}"
+      schema: "{{ env_var('CLICKHOUSE_DB', 'northwind_db') }}"
       secure: false
       verify: false

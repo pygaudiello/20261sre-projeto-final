@@ -3,14 +3,14 @@ import boto3
 import clickhouse_connect
 from concurrent.futures import ThreadPoolExecutor
 
-BUCKET_NAME = os.getenv('BUCKET_NAME', 'olist-data-pipeline-403783416520')
+BUCKET_NAME = os.getenv('BUCKET_NAME', 'northwind-data-pipeline-403783416520')
 AWS_REGION = os.getenv('AWS_REGION', 'us-east-1')
 RAW_PREFIX = os.getenv('RAW_PREFIX', 'raw/')
 
 CH_HOST = os.getenv('CLICKHOUSE_HOST', 'clickhouse')
 CH_USER = os.getenv('CLICKHOUSE_USER', 'admin')
 CH_PASS = os.getenv('CLICKHOUSE_PASSWORD', 'password')
-CH_DB = os.getenv('CLICKHOUSE_DB', 'olist_db')
+CH_DB = os.getenv('CLICKHOUSE_DB', 'northwind_db')
 
 def get_ch_client():
     return clickhouse_connect.get_client(
@@ -18,8 +18,8 @@ def get_ch_client():
     )
 
 FILE_TABLE_MAP = {
-    'data_teste_atualizado': 'raw_orders',
-    'data_teste_olist': 'raw_orders',
+    'northwind_orders': 'raw_orders',
+    'northwind_order_details': 'raw_order_details',
 }
 
 def ingest_native_s3(file_key, table_name):

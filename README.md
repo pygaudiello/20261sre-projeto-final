@@ -2,6 +2,12 @@
 
 Este projeto implementa um pipeline de dados robusto utilizando a **Medallion Architecture** (Raw → Trusted → Curated) para processar dados do marketplace Northwind. O foco principal é a aplicação de princípios de **SRE (Site Reliability Engineering)**, garantindo confiabilidade, performance e observabilidade através de métricas BASS e análises ATAM.
 
+Grupo Composto por:
+- Marina Soares de Souza - RA: 10106224
+- Paola Yêda Aude Gaudiello - RA: 10739716
+- Saulo Simões Ribeiro Gonçalves - RA: 10738083
+
+
 ---
 
 ## 🏗️ Arquitetura do Sistema

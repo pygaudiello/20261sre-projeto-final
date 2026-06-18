@@ -85,11 +85,11 @@ Para garantir que a arquitetura atenda aos objetivos de negócio, aplicamos os c
 
 ## ADRs (Architecture Decision Records)
 
-### ADR-08: Adaptação para Modelo Único de Pedidos (CSV Real)
-- **Contexto**: O dataset real no S3 contém apenas a tabela de pedidos (8 colunas), não o conjunto completo Northwind (8 tabelas).
-- **Decisão**: Adaptar o pipeline para operar com uma única tabela `raw_orders`. Os scripts de ingestão mapeiam arquivos CSV por nome (`data_teste_atualizado` → `raw_orders`). O esquema estrela foi simplificado: staging → `dim_orders` + `fact_order_status`.
-- **BASS (Modificabilidade)**: A centralização no dbt permite adicionar novas tabelas sem modificar a ingestão.
-- **ATAM Tradeoff**: Simplicidade operacional (+) vs perda de riqueza analítica de múltiplas tabelas (-).
+### ADR-08: Estrutura Multitabela (Orders & Order Details)
+- **Contexto**: O dataset real no S3 contém tabelas relacionadas: `northwind_orders` e `northwind_order_details`.
+- **Decisão**: Implementar um pipeline que ingere ambas as tabelas na camada Raw e as consolida na camada Curated via dbt. O esquema estrela utiliza `stg_orders` e `stg_order_details` para alimentar `dim_orders` (enriquecida com métricas financeiras) e `fact_order_status`.
+- **BASS (Modificabilidade)**: A separação em staging permite tratar cada fonte de forma independente antes da join.
+- **ATAM Tradeoff**: Maior riqueza analítica (+) vs complexidade levemente superior na join de transformação (-).
 - **Atendimento**: RF-01, RF-04, RF-11, RF-19.
 
 ### ADR-07: Python para Ingestão e Lógica Procedural
@@ -171,4 +171,6 @@ Para garantir que a arquitetura atenda aos objetivos de negócio, aplicamos os c
    * Se ele perguntar sobre Custos: Mencione que ao remover EC2 (Airflow/Grafana), o maior custo será apenas o RDS, o que é ideal para o
      orçamento limitado do Learner Lab.
    * Se ele perguntar sobre Framework: O uso do RM-ODP mostra que você não apenas "subiu serviços", mas pensou nas diferentes visões do
+     sistema (Empresa, Informação, Engenharia, etc).
+s visões do
      sistema (Empresa, Informação, Engenharia, etc).

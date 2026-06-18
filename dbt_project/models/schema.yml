@@ -1,0 +1,47 @@
+version: 2
+
+models:
+  - name: stg_orders
+    description: "Staging de pedidos com limpeza de tipos"
+    columns:
+      - name: order_id
+        tests:
+          - not_null
+          - unique
+
+  - name: stg_order_details
+    description: "Staging de detalhes dos itens"
+    columns:
+      - name: order_id
+        tests:
+          - not_null
+      - name: total_price
+        tests:
+          - not_null
+
+  - name: dim_orders
+    description: "Dimensão consolidada de pedidos (Marta Curated)"
+    columns:
+      - name: order_id
+        tests:
+          - not_null
+          - unique
+      - name: total_revenue
+        tests:
+          - not_null
+
+  - name: fact_order_status
+    description: "Fato de status para funil de conversão"
+    tests:
+      - dbt_utils.equal_rowcount:
+          compare_model: ref('stg_orders')
+
+  - name: fact_product_revenue
+    description: "Fato de receita por produto e tempo para análise de evolução mensal"
+    columns:
+      - name: product_id
+        tests:
+          - not_null
+      - name: net_revenue
+        tests:
+          - not_null

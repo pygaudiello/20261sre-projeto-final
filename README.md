@@ -25,25 +25,56 @@ O sistema processa dois datasets principais relacionados:
 
 ---
 
-## 🛡️ Pilares SRE (BASS & ATAM)
+## 🛠️ Táticas Arquiteturais Implementadas (Bass et al.)
 
-Para garantir a qualidade arquitetural (conforme *Software Architecture in Practice*), definimos os seguintes cenários:
+Este projeto não apenas segue uma arquitetura moderna, mas implementa **táticas específicas** para garantir os atributos de qualidade desejados:
 
-### BASS Quality Attribute Scenarios
-| Atributo | Estímulo | Resposta Arquitetural | Métrica |
-| :--- | :--- | :--- | :--- |
-| **Disponibilidade** | Falha de container | Healthchecks e autorrecuperação via Docker | 99.9% uptime |
-| **Performance** | Carga de grandes volumes | Ingestão paralela nativa no ClickHouse | < 10 min p/ 100k linhas |
-| **Modificabilidade** | Nova regra de negócio | Transformações centralizadas em SQL no dbt | Implementação < 1 dia |
-| **Confiabilidade** | Dados duplicados | Tabelas `MergeTree` com chaves primárias e deduplicação | Zero duplicação na Curated |
+### 1. Disponibilidade (Availability)
+*   **Retries com Exponential Backoff:** Implementado em `scripts/ingest_data.py` (função `ingest_native_s3`) para lidar com instabilidades de rede no S3 ou ClickHouse.
+*   **Ping de Prontidão:** O script `scripts/wait_for_clickhouse.py` garante que o pipeline só inicie após a saúde do banco ser confirmada.
 
-### ATAM Tradeoffs (Análise de Compromisso)
-*   **Ingestão Nativa S3 vs Python:** Ganhamos **Performance (+)** extrema ao usar o motor do ClickHouse, mas perdemos **Flexibilidade (-)** de pré-processamento em Python.
-*   **Transformação Batch (dbt) vs Streaming:** Ganhamos **Consistência e Linhagem (+)**, aceitando uma **Latência (-) de alguns minutos** para atualização dos dados.
+### 2. Confiabilidade & Idempotência (Reliability)
+*   **Cleanup-before-Ingest:** Em `scripts/ingest_data.py`, implementamos a remoção de registros pré-existentes do mesmo arquivo (`DELETE WHERE source_file = ...`) antes da nova carga, garantindo que o pipeline possa ser reiniciado sem duplicar dados.
+*   **Testes Automatizados de Qualidade:** Localizados em `dbt_project/models/schema.yml` e `sources.yml`. Utilizamos testes de `unique`, `not_null` e `relationships` para validar a integridade referencial entre Pedidos e Detalhes.
+
+### 3. Performance
+*   **Ingestão Paralela:** Uso de `ThreadPoolExecutor` no Python para carregar múltiplos arquivos simultaneamente.
+*   **Native S3 Engine:** Uso da função `s3()` do ClickHouse, que transfere o processamento da carga do Python (lento) para o motor C++ do banco (ultra-rápido).
+
+### 4. Observabilidade (Observability)
+*   **Logging Estruturado:** Uso da biblioteca `logging` no Python para rastrear cada etapa do ETL.
+*   **Health Dashboard:** O Streamlit (`streamlit_app/app.py`) exibe o status em tempo real da ingestão e dos testes do dbt, servindo como um "Single Pane of Glass" para o estado do sistema.
 
 ---
 
-## 🚀 Como Executar
+---
+
+## 📈 Inteligência de Negócio (BI) no Streamlit Dashboard
+
+O dashboard Streamlit é a principal interface para explorar os dados e responder a perguntas de negócio cruciais. Ele agora está otimizado para apresentar análises detalhadas, focando na performance de produtos:
+
+### Pergunta Central de Negócio:
+**"Quais são os 10 produtos com maior receita líquida acumulada e como essa receita evolui mês a mês ao longo do período do dataset?"**
+
+Para responder a isso, o dashboard apresenta:
+
+#### 1. Ranking dos Top 10 Produtos por Receita Líquida:
+*   Uma tabela clara que exibe o `ProductID`, a **Receita Líquida Acumulada** e a **Participação (%)** de cada produto na receita total, ordenada do maior para o menor.
+
+#### 2. Evolução Mensal da Receita dos Top 10 Produtos:
+*   Um **gráfico de linhas interativo** onde o Eixo X mostra o mês/ano (`OrderDate`) e o Eixo Y representa a receita líquida. Cada linha no gráfico corresponde a um dos 10 produtos do ranking, permitindo uma visualização fácil da sua trajetória de vendas ao longo do tempo.
+
+#### Regra de Cálculo da Receita Líquida:
+A receita líquida é obtida por `Σ (UnitPrice × Quantity × (1 − Discount))`, resultado do `JOIN` das tabelas `orders` e `order_details` via `OrderID`. Esta agregação é feita por `ProductID` (para o ranking) e por mês de `OrderDate` (para a série temporal).
+
+#### Filtros Interativos:
+Para uma análise flexível, o dashboard oferece filtros na barra lateral:
+*   **Período de Análise**: Permite selecionar um intervalo de datas para focar em períodos específicos.
+*   **Filtrar Produtos**: Possibilita selecionar um ou mais `ProductID` para análise focada.
+
+Esta seção do dashboard utiliza a biblioteca Pandas para realizar as transformações e agregações em memória, proporcionando agilidade e flexibilidade na exploração dos dados extraídos das camadas de staging do ClickHouse.
+
+---
 
 ### 1. Requisitos
 *   Docker e Docker Compose

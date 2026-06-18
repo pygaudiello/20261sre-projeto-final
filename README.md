@@ -7,6 +7,29 @@ Grupo Composto por:
 - Paola Yêda Aude Gaudiello - RA: 10739716
 - Saulo Simões Ribeiro Gonçalves - RA: 10738083
 
+---
+
+## 🏗️ Imagens do Sistema
+
+Após subir o Streamlit, acesse a aplicação utilizando a URL gerada. Em nosso caso, acessamos pelo celular!
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/4422972b-0af0-44b0-b0cf-1cd1da104094" width="250">
+  <img src="https://github.com/user-attachments/assets/3dc32304-13f7-4d49-84ae-41166fe30a3c" width="250">
+  <img src="https://github.com/user-attachments/assets/629980c5-975c-4bcd-9b1b-0c398fff60e5" width="250">
+</p>
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/c904a13d-2d6d-43bb-93a1-95b79c828319" width="250">
+  <img src="https://github.com/user-attachments/assets/ab48a29a-1017-417a-b0be-7254bc07610f" width="250">
+  <img src="https://github.com/user-attachments/assets/65cb6413-0e52-4601-bcd1-33eed9e872aa" width="250">
+</p>
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/b2b8f01d-ef40-4ff4-b9d9-e5e365eefc4d" width="250">
+  <img src="https://github.com/user-attachments/assets/2c91e20a-cb56-40e2-b264-c6dc1860c7a0" width="250">
+</p>
+
+
 
 ---
 
@@ -50,8 +73,6 @@ Este projeto não apenas segue uma arquitetura moderna, mas implementa **tática
 ### 4. Observabilidade (Observability)
 *   **Logging Estruturado:** Uso da biblioteca `logging` no Python para rastrear cada etapa do ETL.
 *   **Health Dashboard:** O Streamlit (`streamlit_app/app.py`) exibe o status em tempo real da ingestão e dos testes do dbt, servindo como um "Single Pane of Glass" para o estado do sistema.
-
----
 
 ---
 
